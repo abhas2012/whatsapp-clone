@@ -5,7 +5,8 @@ import { AttachFile, SearchOutlined,MoreVert, InsertEmoticon,Mic} from '@materia
 import './Chat.css'
 import { useParams } from 'react-router';
 import db from './firebase';
-import { collection, query, where, getDoc, doc } from "firebase/firestore";
+import { getDoc, getDocs, doc,collection,serverTimestamp,addDoc,orderBy,onSnapshot,query } from "firebase/firestore";
+import {useStateValue} from './StateProvider';
 
 
 function Chat() {
@@ -13,28 +14,40 @@ function Chat() {
     const [input,setInput] = useState("");
     const { roomId } = useParams();
     const [roomName,setRoomName] = useState("");
+    const [messages,setMessages] = useState([]);
+    const [{ user },dispatch] =useStateValue();
+    let lastSeen = null;
  
     useEffect(() => {
         if(roomId)
         {
             const getRoom = async () => {
 
-                    const docRef = doc(db, "rooms", roomId);
-            const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-            setRoomName( docSnap.data().name);
-            } else {
-            // doc.data() will be undefined in this case
-            console.log("No such document!");
-            }      
-                        };
-        
+                  const docRef = doc(db, "rooms", roomId);
+            // const docSnap = await getDoc(docRef);
+            //         if (docSnap.exists()) {
+            // setRoomName( docSnap.data().name);
+
+            const room1 = onSnapshot(doc(db, "rooms", roomId), (doc) => {
+                setRoomName(doc.data().name);
+            });
+
+//             const q = query(collection(doc(db,"rooms",roomId),'messages'), orderBy("timestamp",'asc'));
+
+// const querySnapshot = await getDocs(q);
+//   // doc.data() is never undefined for query doc snapshots
+//   setMessages(querySnapshot.docs.map((doc) =>(doc.data())));
+            const unsubscribe = onSnapshot(query(collection(doc(db,"rooms",roomId),'messages'), orderBy("timestamp",'asc')), (snapshot) =>
+   setMessages(snapshot.docs.map((doc) =>(doc.data()))));
+  return () => {
+    room1();
+    unsubscribe();
+    
+  }; 
+        }      
         getRoom();
+    }
 
-        
-
-      
-}
 }, [roomId]);
 
     useEffect(() => {
@@ -45,6 +58,12 @@ function Chat() {
         e.preventDefault();
         console.log('You typed -----',input);
         setInput('');
+        addDoc(collection(doc(db,"rooms",roomId),'messages'),{
+            message:input,
+            name:user.displayName,
+            timestamp:serverTimestamp()
+        })
+
     }
 
     return (
@@ -54,7 +73,7 @@ function Chat() {
             <div className="chat__headerInfo">
                 
                 <h3>{roomName}</h3>
-                <p>Last seen at...</p>
+                <p>Last seen at {new Date(messages[messages.length-1]?.timestamp?.toDate()).toUTCString()}</p>
             </div>
             <div className="chat__headerRight">
             <IconButton>
@@ -69,16 +88,19 @@ function Chat() {
             </div>
                                </div>
             <div className="chat__body">
-     
-                <p className={`chat__message ${true && "chat__receiver"}`}>
-                <span className="chat__name">
-                    AB
-                </span>
-                    Hello
-                <span className="chat__timestamp">
-                    4:00 pm
-                </span>
-                </p>
+                {messages.map(message =>(
+                    <p className={`chat__message ${message.name==user.displayName && "chat__receiver"}`}>
+                    <span className="chat__name">
+                        {message.name}
+                    </span>
+                        {message.message}
+                    <span className="chat__timestamp">
+                        {new Date(message.timestamp?.toDate()).toUTCString()}
+                    </span>
+                    </p>
+                )
+                )}
+                
 
             </div>
             <div className="chat__footer">
