@@ -32,11 +32,6 @@ function Chat() {
                 setRoomName(doc.data().name);
             });
 
-//             const q = query(collection(doc(db,"rooms",roomId),'messages'), orderBy("timestamp",'asc'));
-
-// const querySnapshot = await getDocs(q);
-//   // doc.data() is never undefined for query doc snapshots
-//   setMessages(querySnapshot.docs.map((doc) =>(doc.data())));
             const unsubscribe = onSnapshot(query(collection(doc(db,"rooms",roomId),'messages'), orderBy("timestamp",'asc')), (snapshot) =>
    setMessages(snapshot.docs.map((doc) =>(doc.data()))));
   return () => {
